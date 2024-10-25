@@ -1,4 +1,4 @@
-name: deploy Erp app
+name: Deploy ERP App
 
 on:
   push:
@@ -10,56 +10,64 @@ jobs:
     timeout-minutes: 10
 
     steps:
-            
-    - name: Deploy to the server
-      uses: appleboy/ssh-action@master
-      env:
-        # db credentials default [1qwert2]
-        MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-        MYSQL_ROOT_USER: ${{ secrets.MYSQL_ROOT_USER }}
-        
-        # erp app admin pass default [admin:321]
-        ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        
-        # ERP site url default [site.local]
-        APP_SITE_NAME: ${{ secrets.ERP_SITE_NAME }}
+      - name: Deploy to the server
+        uses: appleboy/ssh-action@master
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_ROOT_USER: ${{ secrets.MYSQL_ROOT_USER }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          APP_SITE_NAME: ${{ secrets.ERP_SITE_NAME }}
+          ERP_SITE_HOST: ${{ secrets.SSH_HOST }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          timeout: 1700s
+          envs: MYSQL_ROOT_PASSWORD,MYSQL_ROOT_USER,ADMIN_PASSWORD,APP_SITE_NAME,ERP_SITE_HOST
+          script: |
+            # Install Docker and Git
+            sudo apt-get update && sudo apt-get install -y docker.io git
 
-        # access point url ip [server ip address]
-        ERP_SITE_HOST: ${{ secrets.SSH_HOST }}
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        password: ${{ secrets.SSH_PASSWORD }}
-        timeout: 1700s
-        envs: MYSQL_ROOT_PASSWORD,MYSQL_ROOT_USER,ADMIN_PASSWORD,APP_SITE_NAME,ERP_SITE_HOST
-        
-        script: |
-            # installing docker
-            sudo apt-get update && sudo apt-get install docker.io -y
+            # Clone the project if it doesn’t exist
+            if [ ! -d "erpnext-with-github-actions" ]; then
+                git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
+            else
+                echo "Directory 'erpnext-with-github-actions' already exists. Skipping clone."
+            fi
 
-            # installing git
-            sudo apt-get install git -y
-
-            # clone the project
-            git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
-
-            # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition
+            # Set overcommit_memory
             sudo sysctl vm.overcommit_memory=1
 
-            # navigate toe cloned repoo
-            cd ERPnext-with-github-actions
-           
-            # CREATE NETWORK
-            docker network create erpnet
+            # Navigate to the project directory
+            cd erpnext-with-github-actions
 
-            # RUN MARIADB CONTAINER
-            docker run -it  --net erpnet --name erpdb -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD -v $(pwd)/conf:/etc/mysql/conf.d -d 1devops2/erpnext14-with-github-actions:db
+            # Check if Docker network exists; create if not
+            if ! docker network ls | grep -q "erpnet"; then
+                docker network create erpnet
+            else
+                echo "Network 'erpnet' already exists. Skipping creation."
+            fi
+
+            # Remove existing containers if they are running
+            if docker ps -a --format '{{.Names}}' | grep -q "erpdb"; then
+                docker rm -f erpdb
+            fi
+
+            if docker ps -a --format '{{.Names}}' | grep -q "erp"; then
+                docker rm -f erp
+            fi
+
+            # Run MariaDB container
+            docker run -it --network erpnet --name erpdb -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+                -v $(pwd)/conf:/etc/mysql/conf.d -d 1devops2/erpnext14-with-github-actions:db
             sleep 10
 
-            # RUN FRAPPE-APP CONTAINER
-            docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p3306:3306 -d 1devops2/ERPnext-with-github-actions:app
+            # Run Frappe container (ensure lowercase in repo name)
+            docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p 3306:3306 \
+                -d 1devops2/erpnext-with-github-actions:app
             sleep 10
 
+            # Configure ERPNext and POS Awesome in Frappe container
             docker exec erp bash -c " 
             cd frappe-bench && \
             bench new-site $APP_SITE_NAME --admin-password '$ADMIN_PASSWORD' --mariadb-root-username $MYSQL_ROOT_USER --mariadb-root-password $MYSQL_ROOT_PASSWORD --db-host erpdb && \
@@ -71,10 +79,9 @@ jobs:
             cd /home/frappe/frappe-bench/sites && echo "$APP_SITE_NAME" >currentsite.txt && \
             cd /home/frappe/frappe-bench && screen -dmS bench_session bash -c 'bench start' && \
             exit "
-            
-            # exit the machine
+
+            # Exit the machine
             exit
 
-
-    - name: cleanup
-      run: rm -rf ~/.ssh
+      - name: Cleanup
+        run: rm -rf ~/.ssh
