@@ -1,7 +1,7 @@
 # Install erpnext app with github actions
 ![Docker](https://img.shields.io/badge/Docker-23.0.3-%232496ED.svg?style=for-the-badge&logo=docker&logoColor=white) ![ERPNext](https://img.shields.io/badge/ERPNext-v14-%2343853D.svg?style=for-the-badge&logo=erpnext&logoColor=white) ![MariaDB](https://img.shields.io/badge/MariaDB-10.8-%234479A1.svg?style=for-the-badge&logo=mariadb&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.10-%234B8BBE.svg?style=for-the-badge&logo=python&logoColor=white)
 
-![dockerized erpnext 14 with github](https://github.com/Erpnext-Setup/erpnext14-with-github-actions/assets/105498424/029354ff-4942-40b2-b7cb-4a89f42f766b)
+![dockerized erpnext 14 with github](https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions/assets/105498424/029354ff-4942-40b2-b7cb-4a89f42f766b)
 
 
 ## Introduction
@@ -21,7 +21,7 @@ In this tutorial, we will walk you through the process of setting up an ERPNext 
 ### Fork this Repository:
 To start installation, fork 🍽 this repo:
 
-![image](https://github.com/Erpnext-Setup/erpnext14-with-github-actions/assets/105498424/d8eddbcb-dbe8-4247-91ac-42b01f19e505)
+![image](https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions/assets/105498424/d8eddbcb-dbe8-4247-91ac-42b01f19e505)
 
 ### Define secrets variables in actions secrets and variables:
 Go to your GitHub repository.
@@ -42,7 +42,7 @@ Create a new secret named ERP_SITE_NAME and set the value to your desired ERP si
 #### MYSQL_ROOT_PASSWORD, MYSQL_ROOT_USER:
 Create two secrets: MYSQL_ROOT_PASSWORD and MYSQL_ROOT_USER for the MariaDB root user password and username.
 
-![image](https://github.com/Erpnext-Setup/erpnext14-with-github-actions/assets/105498424/1f19f061-045c-4dd5-bb98-ef1255da5603)
+![image](https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions/assets/105498424/1f19f061-045c-4dd5-bb98-ef1255da5603)
 
 #### Run workflow:
 Run the workflow manually / commit any change.
