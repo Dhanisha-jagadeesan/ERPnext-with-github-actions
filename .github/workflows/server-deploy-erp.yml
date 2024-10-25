@@ -41,7 +41,7 @@ jobs:
             sudo apt-get install git -y
 
             # clone the project
-            git clone https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions.git
+            git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
 
             # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition
             sudo sysctl vm.overcommit_memory=1
