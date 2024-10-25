@@ -24,11 +24,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t 1devops2/erpnext-with-github-actions:app .
+          docker build -t dhanishajagadeesan/erpnext-app:latest .
 
       - name: Push Docker image
         run: |
-          docker push 1devops2/erpnext-with-github-actions:app
+          docker push dhanishajagadeesan/erpnext-app:latest
 
       - name: Deploy to the server
         uses: appleboy/ssh-action@master
@@ -79,12 +79,12 @@ jobs:
 
             # Run MariaDB container
             docker run -it --network erpnet --name erpdb -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
-                -v $(pwd)/conf:/etc/mysql/conf.d -d 1devops2/erpnext14-with-github-actions:db
+                -v $(pwd)/conf:/etc/mysql/conf.d -d dhanishajagadeesan/erpnext-app:latest
             sleep 10
 
-            # Run Frappe container (ensure lowercase in repo name)
+            # Run Frappe container
             docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p 3306:3306 \
-                -d 1devops2/erpnext-with-github-actions:app
+                -d dhanishajagadeesan/erpnext-app:latest
             sleep 10
 
             # Configure ERPNext and POS Awesome in Frappe container
@@ -92,16 +92,4 @@ jobs:
             cd frappe-bench && \
             bench new-site $APP_SITE_NAME --admin-password '$ADMIN_PASSWORD' --mariadb-root-username $MYSQL_ROOT_USER --mariadb-root-password $MYSQL_ROOT_PASSWORD --db-host erpdb && \
             bench --site $APP_SITE_NAME install-app erpnext && \
-            bench get-app branch version-14 https://github.com/yrestom/POS-Awesome.git && \
-            bench setup requirements && \
-            bench build --app posawesome && \
-            bench --site $APP_SITE_NAME install-app posawesome && \
-            cd /home/frappe/frappe-bench/sites && echo "$APP_SITE_NAME" >currentsite.txt && \
-            cd /home/frappe/frappe-bench && screen -dmS bench_session bash -c 'bench start' && \
-            exit "
-
-            # Exit the machine
-            exit
-
-      - name: Cleanup
-        run: rm -rf ~/.ssh
+            bench get-app branch 
