@@ -83,7 +83,7 @@ jobs:
             sleep 10
 
             # Run Frappe container
-            docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p 3306:3306 \
+            docker run -it --network erpnet --name erp -p 8000:8000 -p 9001:9000 -p 3306:3306 \
                 -d dhanishajagadeesan/erpnext-app:latest
             sleep 10
 
