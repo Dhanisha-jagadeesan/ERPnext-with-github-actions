@@ -88,8 +88,17 @@ jobs:
             sleep 10
 
             # Configure ERPNext and POS Awesome in Frappe container
-            docker exec erp bash -c " 
+            docker exec erp bash << 'EOF'
             cd frappe-bench && \
             bench new-site $APP_SITE_NAME --admin-password '$ADMIN_PASSWORD' --mariadb-root-username $MYSQL_ROOT_USER --mariadb-root-password $MYSQL_ROOT_PASSWORD --db-host erpdb && \
             bench --site $APP_SITE_NAME install-app erpnext && \
-            bench get-app branch 
+            bench get-app branch version-14 https://github.com/yrestom/POS-Awesome.git && \
+            bench setup requirements && \
+            bench build --app posawesome && \
+            bench --site $APP_SITE_NAME install-app posawesome && \
+            cd /home/frappe/frappe-bench/sites && echo "$APP_SITE_NAME" > currentsite.txt && \
+            cd /home/frappe/frappe-bench && screen -dmS bench_session bash -c 'bench start'
+            EOF
+
+            # Exit the machine
+            exit
