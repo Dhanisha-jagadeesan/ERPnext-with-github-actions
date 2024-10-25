@@ -34,7 +34,7 @@ jobs:
         
     - name: clone the project
       run: |
-        sudo git clone -b https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions.git
+        sudo git clone -b https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
 
     - name: run the docker containers
       run: |
