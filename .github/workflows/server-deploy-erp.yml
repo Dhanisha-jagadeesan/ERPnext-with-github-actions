@@ -41,13 +41,13 @@ jobs:
             sudo apt-get install git -y
 
             # clone the project
-            git clone https://github.com/Erpnext-Setup/erpnext14-with-github-actions.git
+            git clone https://github.com/Dhanisha-jagadeesan/ERPnext-with-github-actions.git
 
             # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition
             sudo sysctl vm.overcommit_memory=1
 
             # navigate toe cloned repoo
-            cd erpnext14-with-github-actions
+            cd ERPnext-with-github-actions
            
             # CREATE NETWORK
             docker network create erpnet
@@ -57,7 +57,7 @@ jobs:
             sleep 10
 
             # RUN FRAPPE-APP CONTAINER
-            docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p3306:3306 -d 1devops2/erpnext14-with-github-actions:app
+            docker run -it --network erpnet --name erp -p 8000:8000 -p 9000:9000 -p3306:3306 -d 1devops2/ERPnext-with-github-actions:app
             sleep 10
 
             docker exec erp bash -c " 
