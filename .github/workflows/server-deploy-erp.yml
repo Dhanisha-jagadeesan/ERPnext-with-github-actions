@@ -13,7 +13,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up SSH
+      - name: Set up SSH and Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -21,31 +21,37 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            # Update and install dependencies
+            # Update and install Docker if not already installed
             sudo apt-get update -y
             sudo apt-get install -y docker.io git
-            
+
             # Clone or update ERPNext repository
             if [ ! -d "erpnext-with-github-actions" ]; then
               git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
             else
-              echo "Directory 'erpnext-with-github-actions' already exists. Skipping clone."
+              cd erpnext-with-github-actions
+              git pull
             fi
             cd erpnext-with-github-actions
-            
-            # Ensure Docker network exists
+
+            # Create Docker network if it doesn't exist
             docker network ls | grep -wq erpnet || docker network create erpnet
 
+            # Remove any existing MariaDB container to avoid conflicts
+            if [ "$(docker ps -aq -f name=erpdb)" ]; then
+              docker rm -f erpdb
+            fi
+
             # Run MariaDB container with a health check
-            docker run -it --network erpnet --name erpdb \
+            docker run -d --network erpnet --name erpdb \
               -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
               -v $(pwd)/conf:/etc/mysql/conf.d \
               --health-cmd='mysqladmin ping --silent' \
               --health-interval=10s \
               --health-timeout=5s \
               --health-retries=5 \
-              -d mariadb:latest
-              
+              mariadb:latest
+
             # Wait for MariaDB to be healthy
             until [ "$(docker inspect -f {{.State.Health.Status}} erpdb)" == "healthy" ]; do
               echo "Waiting for MariaDB to be healthy..."
@@ -53,13 +59,19 @@ jobs:
             done
             echo "MariaDB is healthy."
 
+            # Remove any existing ERPNext container
+            if [ "$(docker ps -aq -f name=erp)" ]; then
+              docker rm -f erp
+            fi
+
             # Run ERPNext container
-            docker run -it --network erpnet --name erp \
+            docker run -d --network erpnet --name erp \
+              -e DB_ROOT_USER=root \
               -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
               -e SITE_NAME=${{ secrets.SITE_NAME }} \
               -e INSTALL_APPS=erpnext \
-              -d dhanishajagadeesan/erpnext-app:latest
-              
+              dhanishajagadeesan/erpnext-app:latest
+
             # Verify ERPNext container is running
             if [ "$(docker ps -q -f name=erp)" ]; then
               echo "ERPNext is up and running."
