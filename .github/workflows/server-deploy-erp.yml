@@ -1,110 +1,72 @@
-name: Deploy ERP App
+name: Deploy ERPNext App
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  deploy-erp:
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker image
-        run: |
-          docker build -t dhanishajagadeesan/erpnext-app:latest .
-
-      - name: Push Docker image
-        run: |
-          docker push dhanishajagadeesan/erpnext-app:latest
-
-      - name: Deploy to the server
+      - name: Set up SSH
         uses: appleboy/ssh-action@master
-        env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-          MYSQL_ROOT_USER: ${{ secrets.MYSQL_ROOT_USER }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          APP_SITE_NAME: ${{ secrets.ERP_SITE_NAME }}
-          ERP_SITE_HOST: ${{ secrets.SSH_HOST }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          timeout: 1700s
-          envs: MYSQL_ROOT_PASSWORD,MYSQL_ROOT_USER,ADMIN_PASSWORD,APP_SITE_NAME,ERP_SITE_HOST
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
-            # Install Docker and Git
-            sudo apt-get update && sudo apt-get install -y docker.io git
-
-            # Clone the project if it doesn’t exist
+            # Update and install dependencies
+            sudo apt-get update -y
+            sudo apt-get install -y docker.io git
+            
+            # Clone or update ERPNext repository
             if [ ! -d "erpnext-with-github-actions" ]; then
-                git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
+              git clone https://github.com/Dhanisha-jagadeesan/erpnext-with-github-actions.git
             else
-                echo "Directory 'erpnext-with-github-actions' already exists. Skipping clone."
+              echo "Directory 'erpnext-with-github-actions' already exists. Skipping clone."
             fi
-
-            # Set overcommit_memory
-            sudo sysctl vm.overcommit_memory=1
-
-            # Navigate to the project directory
             cd erpnext-with-github-actions
+            
+            # Ensure Docker network exists
+            docker network ls | grep -wq erpnet || docker network create erpnet
 
-            # Check if Docker network exists; create if not
-            if ! docker network ls | grep -q "erpnet"; then
-                docker network create erpnet
-            else
-                echo "Network 'erpnet' already exists. Skipping creation."
-            fi
-
-            # Remove existing containers if they are running
-            if docker ps -a --format '{{.Names}}' | grep -q "erpdb"; then
-                docker rm -f erpdb
-            fi
-
-            if docker ps -a --format '{{.Names}}' | grep -q "erp"; then
-                docker rm -f erp
-            fi
-
-            # Run MariaDB container
-            docker run -it --network erpnet --name erpdb -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
-                -v $(pwd)/conf:/etc/mysql/conf.d -d dhanishajagadeesan/erpnext-app:latest
-            sleep 10
-
-            # Wait for MariaDB to be ready
-            until docker exec erpdb mysqladmin -u$MYSQL_ROOT_USER -p$MYSQL_ROOT_PASSWORD ping --silent; do
-                echo "Waiting for MariaDB..."
-                sleep 5
+            # Run MariaDB container with a health check
+            docker run -it --network erpnet --name erpdb \
+              -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+              -v $(pwd)/conf:/etc/mysql/conf.d \
+              --health-cmd='mysqladmin ping --silent' \
+              --health-interval=10s \
+              --health-timeout=5s \
+              --health-retries=5 \
+              -d mariadb:latest
+              
+            # Wait for MariaDB to be healthy
+            until [ "$(docker inspect -f {{.State.Health.Status}} erpdb)" == "healthy" ]; do
+              echo "Waiting for MariaDB to be healthy..."
+              sleep 5
             done
+            echo "MariaDB is healthy."
 
-            # Run Frappe container
-            docker run -it --network erpnet --name erp -p 8001:8000 -p 9001:9000 -p 3307:3306 \
-                -d dhanishajagadeesan/erpnext-app:latest
-            sleep 10
+            # Run ERPNext container
+            docker run -it --network erpnet --name erp \
+              -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+              -e SITE_NAME=${{ secrets.SITE_NAME }} \
+              -e INSTALL_APPS=erpnext \
+              -d dhanishajagadeesan/erpnext-app:latest
+              
+            # Verify ERPNext container is running
+            if [ "$(docker ps -q -f name=erp)" ]; then
+              echo "ERPNext is up and running."
+            else
+              echo "Failed to start ERPNext container."
+              exit 1
+            fi
 
-            # Configure ERPNext and POS Awesome in Frappe container
-            docker exec erp bash << 'EOF'
-            cd frappe-bench && \
-            bench new-site $APP_SITE_NAME --admin-password '$ADMIN_PASSWORD' --mariadb-root-username $MYSQL_ROOT_USER --mariadb-root-password $MYSQL_ROOT_PASSWORD --db-host erpdb && \
-            bench --site $APP_SITE_NAME install-app erpnext && \
-            bench get-app branch version-14 https://github.com/yrestom/POS-Awesome.git && \
-            bench setup requirements && \
-            bench build --app posawesome && \
-            bench --site $APP_SITE_NAME install-app posawesome && \
-            cd /home/frappe/frappe-bench/sites && echo "$APP_SITE_NAME" > currentsite.txt && \
-            cd /home/frappe/frappe-bench && screen -dmS bench_session bash -c 'bench start'
-            EOF
-
-            # Exit the machine
-            exit
+      - name: Complete
+        run: echo "Deployment complete!"
