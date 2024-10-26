@@ -82,6 +82,12 @@ jobs:
                 -v $(pwd)/conf:/etc/mysql/conf.d -d dhanishajagadeesan/erpnext-app:latest
             sleep 10
 
+            # Wait for MariaDB to be ready
+            until docker exec erpdb mysqladmin -u$MYSQL_ROOT_USER -p$MYSQL_ROOT_PASSWORD ping --silent; do
+                echo "Waiting for MariaDB..."
+                sleep 5
+            done
+
             # Run Frappe container
             docker run -it --network erpnet --name erp -p 8001:8000 -p 9001:9000 -p 3307:3306 \
                 -d dhanishajagadeesan/erpnext-app:latest
