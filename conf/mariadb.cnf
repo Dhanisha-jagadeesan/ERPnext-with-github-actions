@@ -61,7 +61,7 @@ slow-query-log-file            = /var/run/mysql/mysql-slow.log
 
 pid-file        = /var/run/mysqld/mysqld.pid
 socket          = /var/run/mysqld/mysqld.sock
-bind-address    = 127.0.0.1
+bind-address    = 0.0.0.0
 
 [mysql]
 default-character-set = utf8mb4
